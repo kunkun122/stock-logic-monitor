@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>选股逻辑监控台 · 三位老师</title>
+<style>
+  :root{
+    --bg:#0b0f16; --bg2:#111823; --card:#141c28; --card2:#18212f;
+    --line:#243044; --line2:#2e3d54;
+    --tx:#e8eef7; --tx2:#9fb0c6; --tx3:#6b7d95;
+    --add:#4aa8ff; --del:#ff6b6b; --mod:#ffb648; --ok:#3ddc97; --warn:#ffb648; --bad:#ff6b6b;
+    --acc:#4aa8ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 600px at 20% -10%, #16233a 0%, var(--bg) 55%) no-repeat, var(--bg);
+    color:var(--tx); font-family:-apple-system,"PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
+    min-height:100vh; padding:24px 20px 60px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1280px;margin:0 auto}
+  /* header */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  h1{font-size:24px;font-weight:700;letter-spacing:.5px;display:flex;align-items:center;gap:10px}
+  h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--ok);box-shadow:0 0 12px var(--ok);animation:pulse 2.2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .sub{color:var(--tx2);font-size:13px;margin-top:6px}
+  .sub b{color:var(--tx)}
+  .acts{display:flex;gap:8px}
+  button{
+    background:var(--card2);color:var(--tx2);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;font-size:13px;cursor:pointer;transition:.18s;font-family:inherit;
+  }
+  button:hover{color:var(--tx);border-color:var(--acc);background:#1c2941}
+  button.on{color:#0b0f16;background:var(--acc);border-color:var(--acc);font-weight:600}
+  /* kpi */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .kpi{background:linear-gradient(160deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .kpi .n{font-size:26px;font-weight:700;line-height:1.1}
+  .kpi .l{font-size:12px;color:var(--tx3);margin-top:4px}
+  /* doc cards */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+  .doc{
+    background:linear-gradient(165deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:14px;
+    padding:16px 16px 14px;cursor:pointer;transition:.2s;position:relative;overflow:hidden;
+  }
+  .doc:hover{border-color:var(--line2);transform:translateY(-2px)}
+  .doc.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset,0 8px 24px -12px var(--acc)}
+  .doc::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tx3);opacity:.5}
+  .doc.upd::after{background:var(--add)}
+  .doc.none::after{background:var(--tx3)}
+  .doc .top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+  .doc h3{font-size:16px;font-weight:650}
+  .doc .who{font-size:12px;color:var(--tx3);margin-top:3px}
+  .badge{font-size:11px;padding:3px 9px;border-radius:20px;white-space:nowrap;font-weight:600}
+  .b-upd{background:rgba(74,168,255,.14);color:var(--add);border:1px solid rgba(74,168,255,.35)}
+  .b-none{background:rgba(107,125,149,.12);color:var(--tx3);border:1px solid var(--line2)}
+  .b-base{background:rgba(255,182,72,.12);color:var(--mod);border:1px solid rgba(255,182,72,.3)}
+  .b-err{background:rgba(255,107,107,.12);color:var(--bad);border:1px solid rgba(255,107,107,.3)}
+  .metrics{display:flex;gap:14px;margin:12px 0 10px;font-size:12px;color:var(--tx2)}
+  .metrics b{color:var(--tx);font-size:15px;font-weight:650}
+  .metrics .m{display:flex;flex-direction:column;gap:2px}
+  .delta{display:flex;gap:10px;font-size:12px;margin-bottom:10px;flex-wrap:wrap}
+  .delta span{padding:2px 8px;border-radius:6px;background:#0f1724;border:1px solid var(--line)}
+  .delta .a{color:var(--add)} .delta .r{color:var(--del)} .delta .c{color:var(--mod)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:22px}
+  .chip{font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(61,220,151,.08);color:#7ee2bb;border:1px solid rgba(61,220,151,.22)}
+  .chip.new{background:rgba(74,168,255,.1);color:var(--add);border-color:rgba(74,168,255,.3)}
+  .sect{font-size:12px;color:var(--tx3);border-top:1px dashed var(--line);padding-top:9px;line-height:1.7}
+  .sect .t{color:var(--tx2)}
+  .url{
+    display:block;margin:2px 0 10px;font-size:11px;line-height:1.5;word-break:break-all;
+    color:var(--tx3);font-family:ui-monospace,Consolas,Menlo,monospace;text-decoration:none;
+    background:#0d1420;border:1px solid var(--line);border-radius:6px;padding:5px 8px;transition:.18s;
+  }
+  .url:hover{color:var(--acc);border-color:var(--line2);background:#101a28}
+  /* 状态横幅 */
+  .banner{
+    display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;margin-bottom:18px;
+    border:1px solid var(--line);background:linear-gradient(160deg,var(--card2),var(--card));font-size:13px;
+  }
+  .banner .ic{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex:none}
+  .banner b{font-weight:650}
+  .banner .r{margin-left:auto;color:var(--tx3);font-size:12px;text-align:right;line-height:1.6}
+  .bn-none .ic{background:rgba(107,125,149,.16);color:var(--tx3)}
+  .bn-upd .ic{background:rgba(74,168,255,.16);color:var(--add)}
+  .bn-wait .ic{background:rgba(255,182,72,.16);color:var(--mod)}
+  .bn-none{border-color:var(--line2)}
+  .bn-upd{border-color:rgba(74,168,255,.35)}
+  .bn-wait{border-color:rgba(255,182,72,.35)}
+  /* 空状态 */
+  .nostate{padding:44px 20px;text-align:center}
+  .nostate .ic{font-size:34px;opacity:.55;margin-bottom:12px}
+  .nostate .t1{font-size:15px;font-weight:650;margin-bottom:6px}
+  .nostate .t2{font-size:12.5px;color:var(--tx3);line-height:1.9}
+  .nostate .t2 code{color:var(--tx2)}
+  /* panels */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:18px}
+  .panel h2{font-size:15px;font-weight:650;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .panel h2 small{font-weight:400;color:var(--tx3);font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:9px 10px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--tx3);font-weight:500;font-size:12px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tr:hover td{background:#111a26}
+  .tl{display:flex;flex-direction:column;gap:6px}
+  .tlrow{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:center;padding:6px 8px;border-radius:8px;cursor:pointer}
+  .tlrow:hover{background:#111a26}
+  .tlrow.sel{background:#16233a;box-shadow:0 0 0 1px var(--line2) inset}
+  .tldate{font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums}
+  .bars{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .bar{display:flex;align-items:center;gap:6px;font-size:12px;background:#0f1724;border:1px solid var(--line);border-radius:7px;padding:4px 9px}
+  .bar i{width:8px;height:8px;border-radius:2px;display:inline-block}
+  .bar.zero{opacity:.45}
+  .bar b{font-weight:600;font-variant-numeric:tabular-nums}
+  .lnk{color:var(--acc);text-decoration:none}
+  .lnk:hover{text-decoration:underline}
+  /* diff */
+  .diffbox{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px;background:#0d1420}
+  .blk{padding:9px 12px;border-bottom:1px solid #16202e;font-size:13px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+  .blk:last-child{border-bottom:none}
+  .blk.add{border-left:3px solid var(--add);background:rgba(74,168,255,.05)}
+  .blk.del{border-left:3px solid var(--del);background:rgba(255,107,107,.05);color:#ffb3b3}
+  .blk.mod{border-left:3px solid var(--mod);background:rgba(255,182,72,.05)}
+  .blk .tag{font-size:10px;padding:1px 6px;border-radius:4px;margin-right:7px;vertical-align:1px;font-weight:700}
+  .tag.a{background:rgba(74,168,255,.18);color:var(--add)}
+  .tag.d{background:rgba(255,107,107,.18);color:var(--del)}
+  .tag.m{background:rgba(255,182,72,.18);color:var(--mod)}
+  .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+  .empty{color:var(--tx3);font-size:13px;padding:24px;text-align:center}
+  /* 底部更新检查 */
+  .alert{
+    display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-radius:12px;margin-bottom:14px;
+    border:1px solid rgba(255,182,72,.42);background:linear-gradient(160deg,rgba(255,182,72,.14),rgba(255,182,72,.04));
+  }
+  .alert.ok{border-color:rgba(61,220,151,.38);background:linear-gradient(160deg,rgba(61,220,151,.13),rgba(61,220,151,.04))}
+  .alert.wait{border-color:rgba(255,182,72,.42);background:linear-gradient(160deg,rgba(255,182,72,.14),rgba(255,182,72,.04))}
+  .alert .ic{
+    width:34px;height:34px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;
+    font-size:17px;background:rgba(255,182,72,.18);color:var(--mod);
+  }
+  .alert.ok .ic{background:rgba(61,220,151,.18);color:var(--ok)}
+  .alert .t1{font-size:14.5px;font-weight:650;margin-bottom:5px}
+  .alert .t2{font-size:12.5px;color:var(--tx3);line-height:1.9}
+  .alert .t2 b{color:var(--tx2)}
+  .checks{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .chk{border:1px solid var(--line);border-radius:11px;padding:12px 14px;background:#0f1724;display:flex;gap:11px;align-items:flex-start}
+  .chk .st{width:26px;height:26px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .chk.ok .st{background:rgba(61,220,151,.16);color:var(--ok)}
+  .chk.no .st{background:rgba(107,125,149,.16);color:var(--tx3)}
+  .chk.wait .st{background:rgba(255,182,72,.16);color:var(--mod)}
+  .chk.err .st{background:rgba(255,107,107,.16);color:var(--bad)}
+  .chk .nm{font-size:13.5px;font-weight:600}
+  .chk .ds{font-size:12px;color:var(--tx3);margin-top:4px;line-height:1.75}
+  .chk .ds b{color:var(--tx2)}
+  @media(max-width:900px){ .checks{grid-template-columns:1fr} }
+  .foot{color:var(--tx3);font-size:12px;text-align:center;margin-top:26px;line-height:1.8}
+  code{background:#0f1724;border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-size:12px;color:var(--tx2)}
+  @media(max-width:900px){
+    .grid{grid-template-columns:1fr} .kpis{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span class="dot"></span>选股逻辑监控台</h1>
+      <div class="sub">监控 <b id="s-docs">-</b> 位老师的金山文档 · 累计 <b id="s-days">-</b> 天快照 · 数据更新于 <b id="s-time">-</b></div>
+    </div>
+    <div class="acts">
+      <button onclick="location.reload()">重新载入</button>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n" id="k1">-</div><div class="l">今日有更新的文档</div></div>
+    <div class="kpi"><div class="n" id="k2">-</div><div class="l">今日新增内容块</div></div>
+    <div class="kpi"><div class="n" id="k3">-</div><div class="l">今日新增股票标的</div></div>
+    <div class="kpi"><div class="n" id="k4">-</div><div class="l">已归档内容块总数</div></div>
+  </div>
+
+  <div class="grid" id="docs"></div>
+
+  <div class="panel">
+    <h2>更新时间线 <small>点击某天查看当天变更明细</small></h2>
+    <div class="tl" id="timeline"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span id="dtitle">当日变更明细</span> <small id="dsub"></small></h2>
+    <div class="tabs" id="dtabs"></div>
+    <div class="diffbox" id="diff"></div>
+  </div>
+
+  <div class="panel">
+    <h2><span id="ctitle">当日更新检查</span> <small id="csub">逐份核对当天是否真的有内容变动</small></h2>
+    <div id="checkAlert"></div>
+    <div class="checks" id="checks"></div>
+  </div>
+
+  <div class="foot">
+    数据由本地脚本抓取金山文档全文后比对生成 · 每天运行 <code>node scripts/run.mjs</code> 采集快照<br>
+    快照存放于 <code>data/snapshots/YYYY-MM-DD/</code>，监控台数据 <code>web/data.js</code>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+const D = window.MONITOR_DATA || {docs:[],snapshotDates:[]};
+const fmtTime = (iso) => { if(!iso) return '-'; const d=new Date(iso); const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+const fmtDate = (s) => {
+  if(!s) return '';
+  if(/^\d{4}$/.test(s)) return s+'年';
+  const m = s.replace('?-','').split('-');
+  if(m.length===3 && m[0]==='?') return `${+m[1]}月${+m[2]}日`;
+  if(m.length===3) return `${m[0]}-${+m[1]}-${+m[2]}`;
+  return s;
+};
+const lastDate = D.snapshotDates && D.snapshotDates.length ? D.snapshotDates[D.snapshotDates.length-1] : null;
+let curDoc = D.docs[0]?.id, curDate = lastDate;
+
+/* ---------- 顶部 ---------- */
+document.getElementById('s-docs').textContent = D.docs.length;
+document.getElementById('s-days').textContent = (D.snapshotDates||[]).length;
+document.getElementById('s-time').textContent = fmtTime(D.generatedAt);
+
+const lastOf = d => d.history[d.history.length-1];
+const today = (()=>{ const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; })(); // 本地日期
+let k1=0,k2=0,k3=0,k4=0;
+D.docs.forEach(d=>{
+  const h=lastOf(d); if(!h) return;
+  const ch=(h.added||0)+(h.removed||0)+(h.changed||0);
+  if(h.status!=='baseline' && ch>0) k1++;
+  if(h.status!=='baseline') k2+=(h.added||0);
+  k3 += (h.newStocks||[]).length;
+  k4 += (h.blockCount||0);
+});
+document.getElementById('k1').textContent = k1 + ' / ' + D.docs.length;
+document.getElementById('k2').textContent = k2;
+document.getElementById('k3').textContent = k3;
+document.getElementById('k4').textContent = k4;
+
+/* ---------- 顶部状态横幅 ---------- */
+function renderBanner(){
+  const el = document.getElementById('banner');
+  const fresh = lastDate === today;               // 今天是否已采集
+  const updDocs = D.docs.filter(d=>{ const h=lastOf(d); return h && h.status!=='baseline' && ((h.added||0)+(h.removed||0)+(h.changed||0))>0; });
+  const errDocs = D.docs.filter(d=>{ const h=lastOf(d); return !h || h.status==='error'; });
+  if(!lastDate){
+    el.innerHTML = `<div class="banner bn-wait"><div class="ic">!</div>
+      <div><b>还没有任何快照</b><div style="color:var(--tx3);font-size:12px;margin-top:3px">先运行 <code>node scripts/run.mjs</code> 采集一次基线</div></div></div>`;
+    return;
+  }
+  if(!fresh){
+    el.innerHTML = `<div class="banner bn-wait"><div class="ic">⏳</div>
+      <div><b>今日（${fmtDate(today)}）尚未采集</b>
+      <div style="color:var(--tx3);font-size:12px;margin-top:3px">当前显示的是 ${fmtDate(lastDate)} 的快照，运行 run.mjs 可抓取今日最新版本</div></div>
+      <div class="r">最近采集<br>${fmtDate(lastDate)}</div></div>`;
+    return;
+  }
+  if((D.snapshotDates||[]).length <= 1){
+    el.innerHTML = `<div class="banner bn-upd"><div class="ic">✓</div>
+      <div><b>今日已完成首次基线归档</b>
+      <div style="color:var(--tx3);font-size:12px;margin-top:3px">三个文档的全文已入库（共 ${k4} 个内容块）${errDocs.length?'，'+errDocs.map(d=>d.name).join('、')+' 抓取失败':''}；从下一次采集起，每天的改动会在这里对比显示</div></div>
+      <div class="r">采集时间<br>${fmtTime(D.generatedAt)}</div></div>`;
+    return;
+  }
+  if(updDocs.length){
+    el.innerHTML = `<div class="banner bn-upd"><div class="ic">✓</div>
+      <div><b>今日检测到 ${updDocs.length} 个文档有更新</b>
+      <div style="color:var(--tx3);font-size:12px;margin-top:3px">${updDocs.map(d=>d.name+'（+'+(lastOf(d).added||0)+'）').join('、')}</div></div>
+      <div class="r">采集时间<br>${fmtTime(D.generatedAt)}</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="banner bn-none"><div class="ic">○</div>
+    <div><b>今日未检测到更新</b>
+    <div style="color:var(--tx3);font-size:12px;margin-top:3px">${fmtDate(lastDate)} 采集的快照与上一次完全一致，三位老师的文档当天没有新增、删除或修改内容${errDocs.length?'（'+errDocs.map(d=>d.name).join('、')+' 抓取失败）':''}</div></div>
+    <div class="r">采集时间<br>${fmtTime(D.generatedAt)}</div></div>`;
+}
+
+/* ---------- 文档卡片 ---------- */
+function renderDocs(){
+  const el = document.getElementById('docs');
+  el.innerHTML = D.docs.map(d=>{
+    const h = lastOf(d);
+    if(!h) return `<div class="doc none"><div class="top"><div><h3>${d.name}</h3><div class="who">${d.author}</div></div><span class="badge b-err">无快照</span></div></div>`;
+    const ch=(h.added||0)+(h.removed||0)+(h.changed||0);
+    const base = h.status==='baseline';
+    const changed = !base && ch>0;
+    const badge = base ? '<span class="badge b-base">基线归档</span>'
+      : (changed ? '<span class="badge b-upd">今日有更新</span>' : '<span class="badge b-none">无变化</span>');
+    const chips = (base? h.newStocks : (h.newStocks||[])).slice(0,8)
+      .map(s=>`<span class="chip new">${s.name} ${s.code}</span>`).join('') || '<span style="color:var(--tx3);font-size:11px">今日无新增标的</span>';
+    const sects = (d.latest?.dateSections||[]).slice(0,4)
+      .map(s=>`<div>· <span class="t">${fmtDate(s.date)}</span></div>`).join('') || '<div>· 未识别到日期章节</div>';
+    return `<div class="doc ${changed?'upd':'none'} ${d.id===curDoc?'sel':''}" onclick="pick('${d.id}')">
+      <div class="top">
+        <div><h3>${d.name}</h3><div class="who">${d.author} · <a class="lnk" href="${d.url}" target="_blank" onclick="event.stopPropagation()">打开文档</a></div></div>
+        ${badge}
+      </div>
+      <a class="url" href="${d.url}" target="_blank" onclick="event.stopPropagation()" title="点击打开原文">${d.url}</a>
+      <div class="metrics">
+        <div class="m"><b>${h.blockCount}</b>内容块</div>
+        <div class="m"><b>${(h.charCount/1000).toFixed(1)}k</b>字数</div>
+        <div class="m"><b>${(d.latest?.stocks||[]).length}</b>标的</div>
+        <div class="m"><b>${fmtDate(h.date)}</b>最近</div>
+      </div>
+      <div class="delta">
+        <span class="a">+${base?'—':(h.added||0)} 新增</span>
+        <span class="r">-${base?'—':(h.removed||0)} 删除</span>
+        <span class="c">~${base?'—':(h.changed||0)} 修改</span>
+      </div>
+      <div class="chips">${chips}</div>
+      <div class="sect">${sects}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- 时间线 ---------- */
+function renderTL(){
+  const el = document.getElementById('timeline');
+  const dates = (D.snapshotDates||[]).slice().reverse();
+  el.innerHTML = dates.map(dt=>{
+    const cells = D.docs.map(d=>{
+      const h = d.history.find(x=>x.date===dt);
+      if(!h) return `<span class="bar zero"><i style="background:#3a4a63"></i>${d.author||d.name} —</span>`;
+      if(h.status==='error') return `<span class="bar zero"><i style="background:var(--bad)"></i>${d.author||d.name} 失败</span>`;
+      if(h.status==='baseline') return `<span class="bar"><i style="background:var(--mod)"></i>${d.author||d.name} 基线 <b>${h.blockCount}</b></span>`;
+      const tot=(h.added||0)+(h.removed||0)+(h.changed||0);
+      return `<span class="bar ${tot?'':'zero'}"><i style="background:${tot?'var(--add)':'#3a4a63'}"></i>${d.author||d.name}
+        <b style="color:var(--add)">+${h.added}</b><b style="color:var(--del)">-${h.removed}</b><b style="color:var(--mod)">~${h.changed}</b></span>`;
+    }).join('');
+    return `<div class="tlrow ${dt===curDate?'sel':''}" onclick="pickDate('${dt}')"><div class="tldate">${fmtDate(dt)}</div><div class="bars">${cells}</div></div>`;
+  }).join('') || '<div class="empty">暂无快照</div>';
+}
+
+/* ---------- 变更明细 ---------- */
+function renderDiff(){
+  const box=document.getElementById('diff'), tabs=document.getElementById('dtabs');
+  document.getElementById('dtitle').textContent = (D.docs.find(d=>d.id===curDoc)?.name||'') + ' · ' + fmtDate(curDate);
+  tabs.innerHTML = D.docs.map(d=>`<button class="${d.id===curDoc?'on':''}" onclick="pick('${d.id}')">${d.name}</button>`).join('')
+    + (D.snapshotDates.length>1 ? `<button onclick="pickDate('${lastDate}')">回到最新</button>` : '');
+  const doc = D.docs.find(d=>d.id===curDoc);
+  const df = doc?.diffs?.[curDate];
+  if(!df){
+    box.innerHTML = `<div class="nostate"><div class="ic">📭</div>
+      <div class="t1">${fmtDate(curDate)} 没有该文档的快照</div>
+      <div class="t2">当天可能未采集，或采集失败（见 <code>data/snapshots/${curDate}/</code> 下的 .error.txt）</div></div>`;
+    return;
+  }
+  if(df.type==='baseline'){
+    const hb = doc.history.find(x=>x.date===curDate);
+    document.getElementById('dsub').textContent = `首次归档快照 · 共 ${hb?hb.blockCount:0} 个内容块 / ${(doc.latest?.stocks||[]).length} 个标的 · 之后每天的改动都会在这里列出`;
+    const ol = (doc.latest?.outline||[]).map(b=>`<div class="blk add"><span class="tag a">${b.t.toUpperCase()}</span>${esc(b.text)}</div>`).join('');
+    const tail = (doc.latest?.tail||[]).map(b=>`<div class="blk">${esc(b.text)}</div>`).join('');
+    box.innerHTML = (ol || '<div class="empty">无内容</div>')
+      + (tail ? `<div class="blk" style="color:var(--tx3);background:#0a1018;border-left:3px solid var(--line2)">—— 文档末尾片段 ——</div>` + tail : '');
+    return;
+  }
+  const tot = df.addedTotal+df.removedTotal+df.changedTotal;
+  document.getElementById('dsub').textContent = `${curDate} · 共 ${tot} 处变化`
+    + (df.newDates?.length ? ' · 新增章节：' + df.newDates.map(x=>fmtDate(x.date)).join('、') : '')
+    + ((df.newStocks||[]).length ? ' · 新增标的：' + df.newStocks.map(s=>s.name+' '+s.code).join('、') : '');
+  if(!tot){
+    const prevDate = (D.snapshotDates||[]).filter(d=>d<curDate).pop();
+    box.innerHTML = `<div class="nostate"><div class="ic">🌙</div>
+      <div class="t1">${fmtDate(curDate)} 未检测到更新</div>
+      <div class="t2">
+        这份文档当天的内容与 ${prevDate?fmtDate(prevDate):'上一次快照'} 完全一致，没有新增、删除或修改任何内容块。<br>
+        老师当天可能没有更新记录，也可能只改了不影响正文的部分（如格式、评论）。<br>
+        上一次检测到变化的时间见上方时间线；数据每日自动采集于 <code>${fmtTime(D.generatedAt)}</code>
+      </div></div>`;
+    return;
+  }
+  let html='';
+  df.added.forEach(b=>html+=`<div class="blk add"><span class="tag a">新增</span>${esc(b.text)}</div>`);
+  df.changed.forEach(b=>html+=`<div class="blk mod"><span class="tag m">修改</span><div style="color:#8b9bb0;text-decoration:line-through;opacity:.7">${esc(b.from)}</div>${esc(b.to)}</div>`);
+  df.removed.forEach(b=>html+=`<div class="blk del"><span class="tag d">删除</span>${esc(b.text)}</div>`);
+  box.innerHTML = html;
+}
+const esc = s => (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+/* ---------- 底部：当日更新检查 ---------- */
+function docStatus(d, dt){
+  const h = d.history.find(x=>x.date===dt);
+  if(!h) return { k:'wait', h:null, tot:0, desc:'当天没有该文档的快照，可能未采集或采集失败' };
+  if(h.status==='error') return { k:'err', h, tot:0, desc:'抓取失败，请查看错误日志' };
+  if(h.status==='baseline') return { k:'base', h, tot:0, desc:`首次基线归档，共 <b>${h.blockCount}</b> 个内容块入库` };
+  const tot=(h.added||0)+(h.removed||0)+(h.changed||0);
+  return tot>0
+    ? { k:'ok', h, tot, desc:`新增 <b>${h.added}</b> · 修改 <b>${h.changed}</b> · 删除 <b>${h.removed}</b>` }
+    : { k:'no', h, tot:0, desc:'与上一次快照逐块比对后完全一致' };
+}
+function renderCheck(){
+  const dt = curDate;
+  document.getElementById('ctitle').textContent = fmtDate(dt) + ' 更新检查';
+  const rows = D.docs.map(d=>({ d, s:docStatus(d, dt) }));
+  const ICON = { ok:'✓', no:'○', base:'★', wait:'!', err:'×' };
+  const LBL  = { ok:'有更新', no:'未更新', base:'基线归档', wait:'未采集', err:'采集失败' };
+
+  document.getElementById('checks').innerHTML = rows.map(({d,s})=>`
+    <div class="chk ${s.k}">
+      <div class="st">${ICON[s.k]}</div>
+      <div>
+        <div class="nm">${d.name} <span style="color:var(--tx3);font-weight:400;font-size:12px">· ${d.author}</span></div>
+        <div class="ds"><b style="color:${s.k==='ok'?'var(--ok)':(s.k==='no'?'var(--tx2)':'var(--mod)')}">${LBL[s.k]}</b><br>${s.desc}</div>
+        <div class="ds" style="color:var(--tx3)"><a class="lnk" href="${d.url}" target="_blank">${d.url}</a></div>
+      </div>
+    </div>`).join('') || '<div class="empty">暂无数据</div>';
+
+  const alertEl = document.getElementById('checkAlert');
+  const subEl   = document.getElementById('csub');
+  const fresh   = dt === today;
+  const miss    = rows.filter(r=>r.s.k==='wait'||r.s.k==='err');
+  const upd     = rows.filter(r=>r.s.k==='ok');
+  const quiet   = rows.filter(r=>r.s.k==='no');
+  const base    = rows.filter(r=>r.s.k==='base');
+
+  if(!dt){
+    alertEl.innerHTML = `<div class="alert wait"><div class="ic">!</div><div>
+      <div class="t1">还没有任何快照</div>
+      <div class="t2">先运行 <code>node scripts/run.mjs</code> 采集一次基线，之后每天的变化都会在这里核对。</div></div></div>`;
+    subEl.textContent = '暂无快照';
+    return;
+  }
+  if(miss.length === D.docs.length){
+    alertEl.innerHTML = `<div class="alert wait"><div class="ic">⏳</div><div>
+      <div class="t1">${fmtDate(dt)} 尚未完成采集</div>
+      <div class="t2">${fresh?'今天的自动采集还没跑（每日 08:30）。':'该日期没有可用快照。'}可手动运行 <code>node scripts/run.mjs</code> 补采。</div></div></div>`;
+    subEl.textContent = '尚未采集';
+    return;
+  }
+  if(base.length && !upd.length && !quiet.length){
+    const bc = base.reduce((n,r)=>n+(r.s.h.blockCount||0),0);
+    alertEl.innerHTML = `<div class="alert ok"><div class="ic">★</div><div>
+      <div class="t1">${fmtDate(dt)}：完成首次基线归档</div>
+      <div class="t2">${base.length} 份文档全文已入库，共 <b>${bc}</b> 个内容块${miss.length?'；'+miss.map(r=>r.d.name).join('、')+' 未采集':''}。<br>
+      从下一次采集起，每天的新增、修改、删除都会在这里逐块核对。</div></div></div>`;
+    subEl.textContent = `首次基线 · ${bc} 个内容块`;
+    return;
+  }
+  if(upd.length){
+    alertEl.innerHTML = `<div class="alert ok"><div class="ic">✓</div><div>
+      <div class="t1">${fmtDate(dt)}：${upd.length} / ${D.docs.length} 份文档有更新</div>
+      <div class="t2">${upd.map(r=>`<b>${r.d.name}</b>（+${r.s.h.added}）`).join('、')}${quiet.length?'；'+quiet.map(r=>r.d.name).join('、')+' 当天无变化':''}${miss.length?'；'+miss.map(r=>r.d.name).join('、')+' 未采集':''}</div></div></div>`;
+    subEl.textContent = `${upd.length} 份有更新 · ${quiet.length} 份无变化`;
+    return;
+  }
+  if(quiet.length && !miss.length && !base.length){
+    const lastChange = findLastChange(dt);
+    alertEl.innerHTML = `<div class="alert"><div class="ic">!</div><div>
+      <div class="t1">${fmtDate(dt)} 未检测到任何更新</div>
+      <div class="t2">
+        ${D.docs.length} 份文档的正文与上一次快照<b>逐块比对完全一致</b>，当天没有新增、删除或修改内容。<br>
+        ${lastChange?`上一次检测到变化是在 <b>${fmtDate(lastChange.date)}</b>（${lastChange.names}）。`:'目前还没有记录到任何一次内容变化。'}
+        老师当天可能未更新，也可能只调整了格式或批注（不计入正文比对）。<br>
+        ${fresh?'自动采集时间为每日 08:30；':'该日期为历史快照；'}如需复核，可直接点下方网址打开原文核对。
+      </div></div></div>`;
+    subEl.textContent = `${quiet.length} 份均无变化`;
+    return;
+  }
+  alertEl.innerHTML = `<div class="alert wait"><div class="ic">!</div><div>
+    <div class="t1">${fmtDate(dt)} 部分文档未采集${quiet.length?'，其余无变化':''}</div>
+    <div class="t2">${miss.map(r=>`<b>${r.d.name}</b>`).join('、')} 当天没有有效快照${quiet.length?'，其余 '+quiet.length+' 份逐块比对后无内容变化':''}。</div></div></div>`;
+  subEl.textContent = `${quiet.length} 份无变化 · ${miss.length} 份未采集`;
+}
+function findLastChange(before){
+  const dates = (D.snapshotDates||[]).filter(x=>x<before).slice().reverse();
+  for(const dt of dates){
+    const names = D.docs.filter(d=>{
+      const h=d.history.find(x=>x.date===dt);
+      return h && h.status!=='baseline' && h.status!=='error' && ((h.added||0)+(h.removed||0)+(h.changed||0))>0;
+    }).map(d=>d.name);
+    if(names.length) return { date:dt, names:names.join('、') };
+  }
+  return null;
+}
+
+function pick(id){ curDoc=id; renderDocs(); renderDiff(); }
+function pickDate(dt){ curDate=dt; renderTL(); renderDiff(); renderCheck(); }
+
+renderBanner(); renderDocs(); renderTL(); renderDiff(); renderCheck();
+</script>
+</body>
+</html>
